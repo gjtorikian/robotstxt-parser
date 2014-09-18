@@ -15,7 +15,7 @@ module Robotstxt
   #
   # This parser only considers lines starting with (case-insensitively:)
   #  Useragent: User-agent: Allow: Disallow: Sitemap:
-  # 
+  #
   # The file is divided into sections, each of which contains one or more User-agent:
   # lines, followed by one or more Allow: or Disallow: rules.
   #
@@ -53,12 +53,10 @@ module Robotstxt
     # Not passing a body is deprecated, but retained for compatibility with clients
     # written for version 0.5.4.
     #
-    def initialize(user_agent, body=nil)
+    def initialize(user_agent, body)
       @robot_id = user_agent
-      if body
-        @found = true
-        parse(body) # set @body, @rules and @sitemaps
-      end
+      @found = true
+      parse(body) # set @body, @rules and @sitemaps
     end
 
     # Given a URI object, or a string representing one, determine whether this
@@ -70,27 +68,6 @@ module Robotstxt
       path_allowed?(@robot_id, path)
 
     end
-
-    # DEPRECATED
-
-    # These methods are from the old API (v. 0.5.4), they should still work
-    # but are no longer supported or recommended.
-    attr_accessor :robot_id
-
-    # Get obtains a new @body from the given URL.
-    def get(url);
-      parse(Robotstxt.obtain(url, @robot_id))
-    end
-    attr_reader :body
-
-    # Did we find anything when you called get?
-    attr_reader :found
-    def found?; !!@found; end
-
-    # If there were previously good uses for this information, they should be
-    # added to this class and exposed at a higher level.
-    #
-    def rules; raise "The rules format was updated after version 0.5.4"; end
 
     protected
 
@@ -161,8 +138,8 @@ module Robotstxt
         end_marker = ""
       end
 
-      glob = normalize_percent_encoding(glob)
-      path = normalize_percent_encoding(path)
+      glob = Robotstxt.ultimate_scrubber normalize_percent_encoding(glob)
+      path = Robotstxt.ultimate_scrubber normalize_percent_encoding(path)
 
       path =~ Regexp.new("^" + reify(glob) + end_marker)
 
@@ -198,6 +175,7 @@ module Robotstxt
     # a significance in a regex.
     #
     def reify(glob)
+      glob = Robotstxt.ultimate_scrubber(glob)
 
       # -1 on a split prevents trailing empty strings from being deleted.
       glob.split("*", -1).map{ |part| Regexp.escape(part) }.join(".*")
@@ -234,29 +212,26 @@ module Robotstxt
     #
     def parse(body)
 
-      @body = body
+      @body = Robotstxt.ultimate_scrubber(body)
       @rules = []
       @sitemaps = []
-      body.split(/[\r\n]+/).each do |line|
 
-        prefix, value = line.split(":", 2).map(&:strip)
+      body.split(/[\r\n]+/).each do |line|
+        prefix, value = line.delete("\000").split(":", 2).map(&:strip)
         value.sub! /\s+#.*/, '' if value
         parser_mode = :begin
 
         if prefix && value
-          case prefix.capitalize
 
-            when /^User-?agent$/
-
+          case prefix.downcase
+            when /^user-?agent$/
               if parser_mode == :user_agent
                 @rules << [value, rules.last[1]]
               else
                 parser_mode = :user_agent
                 @rules << [value, []]
               end
-
-            when "Disallow"
-
+            when "disallow"
               parser_mode = :rules
               @rules << ["*", []] if @rules.empty?
 
@@ -265,19 +240,14 @@ module Robotstxt
               else
                 @rules.last[1] << [value, false]
               end
-
-            when "Allow"
-
+            when "allow"
               parser_mode = :rules
               @rules << ["*", []] if @rules.empty?
               @rules.last[1] << [value, true]
-
-            when "Sitemap"
+            when "sitemap"
               @sitemaps << value
-
             else
               # Ignore comments, Crawl-delay: and badly formed lines.
-
           end
         end
       end

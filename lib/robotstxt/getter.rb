@@ -6,8 +6,7 @@ module Robotstxt
     def obtain(source, robot_id, options)
       options = {
         :num_redirects => 5,
-        :http_timeout => 10,
-        :url_charset => "utf8"
+        :http_timeout => 10
       }.merge(options)
 
       robotstxt = if source.is_a? Net::HTTP
@@ -34,7 +33,7 @@ module Robotstxt
       begin
         case response
         when Net::HTTPSuccess
-          decode_body(response, options[:url_charset])
+          decode_body(response)
         when Net::HTTPRedirection
           if options[:num_redirects] > 0 && response['location']
             options[:num_redirects] -= 1
@@ -69,13 +68,9 @@ module Robotstxt
     # headers.
     # In the case that we can't decode, Ruby's laissez faire attitude to encoding
     # should mean that we have a reasonable chance of working anyway.
-    def decode_body(response, charset)
+    def decode_body(response)
       return nil if response.body.nil?
-      Iconv.conv(charset, (response.type_params['charset'] || "ISO-8859-1"), response.body)
-    rescue NameError # iconv does not exist in Ruby 2+
-      response.body.encode('UTF-8', :invalid => :replace, :replace => '').encode('UTF-8')
-    rescue Iconv::IllegalSequence, Iconv::InvalidCharacter, Iconv::InvalidEncoding
-      response.body
+      Robotstxt.ultimate_scrubber(response.body)
     end
 
 
