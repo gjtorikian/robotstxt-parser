@@ -88,6 +88,6 @@ module Robotstxt
   end
 
   def self.ultimate_scrubber(str)
-    str.encode("UTF-8", :invalid => :replace, :undef => :replace, :replace => "").force_encoding('UTF-8')
+    str.encode("UTF-8", :invalid => :replace, :undef => :replace, :replace => '')
   end
 end
