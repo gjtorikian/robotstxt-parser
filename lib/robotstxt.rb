@@ -87,9 +87,7 @@ module Robotstxt
     self.get(uri, robot_id).allowed? uri
   end
 
-  # DEPRECATED
-
-  def self.allowed?(uri, robot_id); self.get(uri, robot_id).allowed? uri; end
-  def self.sitemaps(uri, robot_id); self.get(uri, robot_id).sitemaps; end
-
+  def self.ultimate_scrubber(str)
+    str.encode("UTF-8", :invalid => :replace, :undef => :replace, :replace => "").force_encoding('UTF-8')
+  end
 end
